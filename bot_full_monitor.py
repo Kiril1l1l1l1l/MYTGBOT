@@ -6,7 +6,13 @@ import os
 import threading
 import time
 
-TG_TOKEN = '7883913167:AAFE960yFs_cIrU3sWbPDBof-RTo5T4lt1M'
+import os
+
+TG_TOKEN = os.getenv("TG_TOKEN")
+
+if not TG_TOKEN:
+    raise ValueError("❌ TG_TOKEN не найден! Убедись, что он добавлен в Environment Variables Railway.")
+
 PORTFOLIO_FILE = 'portfolio.json'
 ALERTS = {
     'USD': {'buy_below': 82.0, 'sell_above': 85.5},
