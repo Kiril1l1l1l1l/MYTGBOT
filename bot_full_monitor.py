@@ -6,17 +6,20 @@ import os
 import threading
 import time
 
+# =======================
+#  Настройки токенов
+# =======================
 HF_TOKEN = os.getenv("HF_TOKEN")
-
 if not HF_TOKEN:
-    raise ValueError("❌ HF_TOKEN не найден! Убедись, что он добавлен в переменные окружения Railway.")
-
+    raise ValueError("❌ HF_TOKEN не найден! Добавь его в Environment Variables Railway.")
 
 TG_TOKEN = os.getenv("TG_TOKEN")
-
 if not TG_TOKEN:
-    raise ValueError("❌ TG_TOKEN не найден! Убедись, что он добавлен в Environment Variables Railway.")
+    raise ValueError("❌ TG_TOKEN не найден! Добавь его в Environment Variables Railway.")
 
+# =======================
+#  Константы
+# =======================
 PORTFOLIO_FILE = 'portfolio.json'
 ALERTS = {
     'USD': {'buy_below': 82.0, 'sell_above': 85.5},
@@ -30,6 +33,9 @@ bot = telebot.TeleBot(TG_TOKEN)
 user_chat_id = None
 monitoring_active = True
 
+# =======================
+#  Получение цены акции
+# =======================
 def get_stock_price(symbol):
     try:
         url = MOEX_URL.format(symbol.lower())
@@ -37,10 +43,12 @@ def get_stock_price(symbol):
         return float(res['marketdata']['data'][0][8])
     except:
         return None
-        def ask_huggingface(prompt):
-    """
-    Отправляет запрос в Hugging Face API и возвращает ответ модели.
-    """
+
+# =======================
+#  Запрос к Hugging Face
+# =======================
+def ask_huggingface(prompt):
+
     url = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2"
     headers = {"Authorization": f"Bearer {HF_TOKEN}"}
     payload = {"inputs": prompt}
@@ -56,7 +64,9 @@ def get_stock_price(symbol):
     except Exception as e:
         return f"Ошибка при запросе к Hugging Face: {e}"
 
-
+# =======================
+#  Работа с портфелем
+# =======================
 def load_portfolio():
     if os.path.exists(PORTFOLIO_FILE):
         with open(PORTFOLIO_FILE, 'r') as f:
@@ -67,6 +77,9 @@ def save_portfolio(data):
     with open(PORTFOLIO_FILE, 'w') as f:
         json.dump(data, f, indent=2)
 
+# =======================
+#  Мониторинг цен
+# =======================
 def alert_loop():
     global monitoring_active
     while True:
@@ -86,6 +99,9 @@ def alert_loop():
             print(f"[ОШИБКА]: {e}")
         time.sleep(60)
 
+# =======================
+#  Команды бота
+# =======================
 @bot.message_handler(commands=['start'])
 def start_handler(message):
     global user_chat_id, monitoring_active
@@ -107,11 +123,9 @@ def stop_handler(message):
     global monitoring_active
     monitoring_active = False
     bot.send_message(message.chat.id, "⛔️ Мониторинг остановлен. Чтобы включить — /start")
-    @bot.message_handler(commands=['ask'])
+
+@bot.message_handler(commands=['ask'])
 def handle_ask(message):
-    """
-    Обрабатывает команду /ask — отправляет запрос в Hugging Face и присылает ответ.
-    """
     question = message.text.replace("/ask", "").strip()
     if not question:
         bot.reply_to(message, "❓ Введите запрос после команды /ask, например:\n/ask Найди свежие новости по Газпрому")
@@ -120,7 +134,9 @@ def handle_ask(message):
     answer = ask_huggingface(question)
     bot.send_message(message.chat.id, answer)
 
-
+# =======================
+#  Обработка кнопок
+# =======================
 @bot.callback_query_handler(func=lambda call: True)
 def handle_buttons(call):
     if call.data == "profit":
@@ -145,6 +161,9 @@ def confirm_delete(call):
     save_portfolio(portfolio)
     bot.send_message(call.message.chat.id, f"✅ {removed['symbol']} удалена.")
 
+# =======================
+#  Операции с портфелем
+# =======================
 def handle_add(message):
     try:
         parts = message.text.strip().split()
@@ -208,6 +227,9 @@ def show_advice(message):
                 advice += f"{s['symbol']}: 🟡 Держать ({price})\n"
     bot.send_message(message.chat.id, advice)
 
+# =======================
+#  Запуск бота
+# =======================
 print("[INFO] Бот запущен.")
 threading.Thread(target=alert_loop, daemon=True).start()
 bot.polling(none_stop=True)
