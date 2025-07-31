@@ -6,7 +6,11 @@ import os
 import threading
 import time
 
-import os
+HF_TOKEN = os.getenv("HF_TOKEN")
+
+if not HF_TOKEN:
+    raise ValueError("❌ HF_TOKEN не найден! Убедись, что он добавлен в переменные окружения Railway.")
+
 
 TG_TOKEN = os.getenv("TG_TOKEN")
 
@@ -33,6 +37,25 @@ def get_stock_price(symbol):
         return float(res['marketdata']['data'][0][8])
     except:
         return None
+        def ask_huggingface(prompt):
+    """
+    Отправляет запрос в Hugging Face API и возвращает ответ модели.
+    """
+    url = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2"
+    headers = {"Authorization": f"Bearer {HF_TOKEN}"}
+    payload = {"inputs": prompt}
+
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=60)
+        response.raise_for_status()
+        result = response.json()
+        if isinstance(result, list) and "generated_text" in result[0]:
+            return result[0]["generated_text"]
+        else:
+            return str(result)
+    except Exception as e:
+        return f"Ошибка при запросе к Hugging Face: {e}"
+
 
 def load_portfolio():
     if os.path.exists(PORTFOLIO_FILE):
@@ -84,6 +107,19 @@ def stop_handler(message):
     global monitoring_active
     monitoring_active = False
     bot.send_message(message.chat.id, "⛔️ Мониторинг остановлен. Чтобы включить — /start")
+    @bot.message_handler(commands=['ask'])
+def handle_ask(message):
+    """
+    Обрабатывает команду /ask — отправляет запрос в Hugging Face и присылает ответ.
+    """
+    question = message.text.replace("/ask", "").strip()
+    if not question:
+        bot.reply_to(message, "❓ Введите запрос после команды /ask, например:\n/ask Найди свежие новости по Газпрому")
+        return
+    bot.send_message(message.chat.id, "⏳ Ищу информацию, подождите...")
+    answer = ask_huggingface(question)
+    bot.send_message(message.chat.id, answer)
+
 
 @bot.callback_query_handler(func=lambda call: True)
 def handle_buttons(call):
